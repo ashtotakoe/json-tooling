@@ -1,0 +1,19 @@
+.container {
+  width: 70vw;
+  margin: 0 auto 0;
+}
+
+.inputs-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.text-container {
+  height: 70vh;
+  width: 100%;
+}
+
+#parse {
+  margin-top: 1rem;
+}

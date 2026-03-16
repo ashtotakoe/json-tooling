@@ -1,0 +1,24 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Go (Delve)",
+    "adapter": "Delve",
+    "program": "$ZED_FILE/../backend-go",
+    "request": "launch",
+    "mode": "debug"
+  },
+  {
+    "adapter": "Delve",
+    "label": "aaa",
+    "request": "launch",
+    "mode": "debug",
+    "program": ".",
+    "cwd": "/Users/egormartynov/Projects/json-parser/backend-go/",
+    "args": [],
+    "buildFlags": [],
+    "env": {}
+  }
+]
