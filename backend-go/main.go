@@ -37,34 +37,36 @@ func main() {
 
 	// http.ListenAndServe(":3000", nil)
 
-	// err := parser.Parse(`
+	err := parser.Parse(`
+		{
+			"aaa": true,
+			"bbb": "hello",
+			"u:u": 223
+		}
+		`)
+
+
+	//
+	// err := parser.Parse((`
+	//
+	//
 	// 	{
 	// 		"aaao": true,
-	// 		"bb:b": "uw:w\"au:",
-	// 		"u:u": 223
+	// 		"bbb": 5,
+	// 		"bro": [
+	// 			"test",
+	// 			"bimbo",
+	// 			{
+	// 					"aaa": "uuu"
+	// 			}
+	// 		]
 	// 	}
-	// 	`)
+	//
+	//
+	//
+	//
+	// 	`))
 	//
 
-
-	err := parser.Parse((`
-
-
-		{
-			"aaao": true,
-			"bbb": 5,
-			"bro": [
-				"test",
-				"bimbo",
-				{
-						"aaa": "uuu"
-				}
-			]
-		}
-
-
-
-
-		`))
 	fmt.Println(err)
 }

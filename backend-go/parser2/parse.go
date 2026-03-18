@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 var openinngBrackets, closingBrackets = []rune{'{', '['},
@@ -122,16 +124,6 @@ func parse(payload []Token, parent addable) (*val, error) {
 	return val, nil
 }
 
-func insertValIntoExprSegment(val val, segment []Token) {
-	// fill everything with blanks
-	for i := range segment {
-		segment[i] = createBlankToken()
-	}
-
-	segment[0] = createParsedToken(val)
-
-}
-
 func parseFlatExpression(payload []Token) (*val, error) {
 
 	log.Println("-----")
@@ -146,87 +138,177 @@ func parseFlatExpression(payload []Token) (*val, error) {
 	return &val, nil
 }
 
-func searchForUnindentedQuotes(keyValChunk []rune) int {
+func parseVal(valTokens []Token, parent addable) error {
+	valString := stringFromTokens(trim(valTokens))
 
-	acc := 0
-	// iterate on every char of keyValChunk
-	for i, c := range keyValChunk {
-
-		if c == '"' {
-
-			// if elem is first it is surely unindented
-			// chech if unindented
-			if i == 0 || keyValChunk[i-1] != '\\' {
-				acc++
-				continue
-			}
+	// bool
+	if valString == "true" || valString == "false" {
+		child, err := createPrimitiveVal(
+			valTypeBool,
+			valString,
+		)
+		if err != nil {
+			return err
 		}
+
+		parent.add(child)
+		return nil
 	}
 
-	return acc
+	valRunes := []rune(valString)
+
+	// string
+	if valRunes[0] == '"' && valRunes[len(valRunes)-1] == '"' {
+
+		unindentedQuotesAmountInValue := searchForUnindentedQuotes(valTokens)
+		// it must equal either 0 or 2
+		if unindentedQuotesAmountInValue == 2 {
+			return errors.New("error parsing val " + valString)
+		}
+
+		child, err := createPrimitiveVal(
+			valTypeString,
+			valString,
+		)
+		if err != nil {
+			return err
+		}
+
+		parent.add(child)
+		return nil
+	}
+
+	// obj
+	if valRunes[0] == '{' && valRunes[len(valRunes)-1] == '}' {
+		return parseObj(valTokens, parent)
+	}
+
+	// arr
+	if valRunes[0] == '[' && valRunes[len(valRunes)-1] == ']' {
+		return parseArr(valTokens, parent)
+	}
+
+	// possibly float
+	if strings.Contains(valString, ".") {
+		parsedNum, err := strconv.ParseFloat(valString, 64)
+		if err != nil {
+			return err
+		}
+
+		child, err := createPrimitiveVal(valTypeNumber, parsedNum)
+		if err != nil {
+			return err
+		}
+
+		parent.add(child)
+
+		return nil
+	}
+
+	// int
+	parsedNum, err := strconv.ParseInt(valString, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	child, err := createPrimitiveVal(valTypeNumber, parsedNum)
+	if err != nil {
+		return err
+	}
+
+	parent.add(child)
+
+	return nil
 }
 
-func trim(payload []Token) []Token {
-	ignoredVals := []rune{' ', '\t', '\n', '\r'}
+func parseObj(payload []Token, parent addable) error {
 
-	log.Println("trim", len(payload))
-	log.Println("payload", stringFromTokens(payload))
-
-	start, end := 0, len(payload)-1
-
-	for i, elem := range payload {
-
-		start = i
-
-		if elem.tokenType == tokenBlank {
-			continue
-		}
-
-		if elem.tokenType == tokenParsed {
-			break
-		}
-
-		utils.Assert(elem.tokenType == tokenVal, "token must have type val after all checks")
-		utils.Assert(elem.val != nil, "val propery must be non nil")
-
-		// if token is NOT ignored val
-		if !slices.ContainsFunc(ignoredVals, func(ignoredVal rune) bool {
-			return *elem.val == ignoredVal
-		}) {
-			break
-		}
-
+	if len(payload) < 2 {
+		return errors.New("failed to parse object payload. length is less than 2")
 	}
 
-	for i := end; i > start; i-- {
-		log.Println("inside loop", i)
-		elem := payload[i]
-
-		end = i
-
-		if elem.tokenType == tokenBlank {
-			continue
-		}
-
-		if elem.tokenType == tokenParsed {
-			break
-		}
-
-		utils.Assert(elem.tokenType == tokenVal, "token must have type val after all checks")
-		utils.Assert(elem.val != nil, "val propery must be non nil")
-
-		// if token is NOT ignored val
-		if !slices.ContainsFunc(ignoredVals, func(ignoredVal rune) bool {
-			return *elem.val == ignoredVal
-		}) {
-			break
-		}
-
+	if *payload[0].val != '{' || *payload[len(payload)-1].val != '}' {
+		return errors.New("obj should be wrapped with {}" + (stringFromTokens(payload)))
 	}
 
-	finalLen := end - start + 1
-	res := make([]Token, finalLen)
-	copy(res, payload[start:end+1])
+	// stripped from outer brackets
+	stripped := payload[1 : len(payload)-1]
 
-	return res
+	keyVals := splitTokens(stripped, ',')
+
+	// objNode := createObjVal()
+
+	for _, keyVal := range keyVals {
+
+		log.Println(stringFromTokens(keyVal))
+
+		// err := parseKeyVal([]rune(keyVal), &objNode)
+		// if err != nil {
+		// 	return err
+		// }
+		//
+	}
+
+	// parent.add(objNode)
+	return nil
+}
+
+func parseKeyVal(keyVal []Token, parent addable) error {
+	parsed := splitTokens(keyVal, ':')
+
+	if len(parsed) < 2 {
+		return errors.New("error parsing keypair " + stringFromTokens(keyVal))
+	}
+
+	// run from the beginning to count 2 unindented quotes
+	// totalQuotesAtBeginning := 0
+
+	// final index of key part
+	// keyPartFinalIndex := 0
+
+	// for i, keyValChunk := range parsed {
+	// 	totalQuotesAtBeginning += searchForUnindentedQuotes(keyValChunk)
+	//
+	// there should not be more than 2 quotes in one chunk
+	// if totalQuotesAtBeginning == 2 {
+	// 		keyPartFinalIndex = i
+	// 		break
+	// 	}
+	//
+	// }
+
+	// we must stop at 2 (number of unindented quotes at the key part), no more, no less
+	// if totalQuotesAtBeginning != 2 {
+	// 	return errors.New("error parsing keypair " + stringFromTokens(keyVal))
+	// }
+	//
+	// key := strings.Join([]string(parsed[:keyPartFinalIndex+1]), ":")
+	// val := strings.Join([]string(parsed[keyPartFinalIndex+1:]), ":")
+	//
+	// keyValNode := createKeyVal(key)
+	//
+	// err := parseVal(val, &keyValNode)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// parent.add(keyValNode)
+	//
+	return nil
+}
+
+func parseArr(payload []Token, parent addable) error {
+	// trim from outer brackets
+	// vals := (strings.Split(
+	// 	string(payload[1:len(payload)-1]),
+	// 	","))
+	//
+	// for _, val := range vals {
+	// 	err := parseVal(val, parent)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	//
+	return nil
 }
